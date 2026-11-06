@@ -36,6 +36,29 @@ it('restores deep links and browser history without pushing replacement history 
   const historyLength=history.length;history.replaceState(null,'','/#cover');window.dispatchEvent(new PopStateEvent('popstate'));await advance();
   expect(app.navigation!.current).toBe(0);expect(history.length).toBe(historyLength);app.destroy();
 });
+it('maps a bare route to cover and follows same-document Back and Forward without adding history entries',async()=>{
+  const app=await createPresentation(root,{slides:slideDefinitions.slice(0,3),transition:architecturalWipe,announcement:'{current}'});
+  expect(app.navigation!.current).toBe(0);
+  root.querySelector<HTMLButtonElement>('[data-next]')!.click();await advance();
+  root.querySelector<HTMLButtonElement>('[data-next]')!.click();await advance();
+  expect(app.navigation!.current).toBe(2);
+  const historyLength=history.length;
+  const traverse=async(direction:'back'|'forward')=>{
+    await new Promise<void>(resolve=>{
+      let events=2;
+      const done=()=>{if(--events===0)resolve();};
+      window.addEventListener('popstate',done,{once:true});
+      window.addEventListener('hashchange',done,{once:true});
+      history[direction]();
+    });
+    await advance();
+  };
+  await traverse('back');expect(app.navigation!.current).toBe(1);
+  await traverse('back');expect(location.pathname+location.hash).toBe('/');expect(app.navigation!.current).toBe(0);
+  await traverse('forward');expect(app.navigation!.current).toBe(1);
+  await traverse('forward');expect(app.navigation!.current).toBe(2);
+  expect(history.length).toBe(historyLength);app.destroy();
+});
 it('uses the same brief transition with reduced motion and completes it',async()=>{
   vi.stubGlobal('matchMedia',()=>({matches:true}));
   const app=await createPresentation(root,{slides:slideDefinitions.slice(0,3),transition:architecturalWipe,announcement:'{current}'});

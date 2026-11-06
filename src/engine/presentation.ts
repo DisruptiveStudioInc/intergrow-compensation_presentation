@@ -33,10 +33,14 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   let clipsContent=false;
   let pointer:[number,number]=[0,0],targetPointer:[number,number]=[0,0];
   let historyPending:number|undefined;
-  const initial=options.slides.findIndex(s=>s.id===decodeHash());
+  const slideIndexFromHash=(hash:string)=>{
+    if(!hash||hash==='#')return Math.max(0,options.slides.findIndex(s=>s.id==='cover'));
+    try{return options.slides.findIndex(s=>s.id===decodeURIComponent(hash.startsWith('#')?hash.slice(1):hash));}
+    catch{return -1;}
+  };
+  const initial=Math.max(0,slideIndexFromHash(location.hash));
   let nav:NavigationController;
   const renderer=new BackgroundRenderer(backdrop,transition,()=>{ if(resolveTransition) finish(); });
-  function decodeHash(){try{return decodeURIComponent(location.hash.slice(1));}catch{return '';}}
   function updateUi(index:number,announce=true){
     slides.forEach((slide,i)=>{
       const active=i===index;slide.dataset.active=String(active);slide.inert=!active;slide.setAttribute('aria-hidden',String(!active));
@@ -166,7 +170,7 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
     void request(nav.current+Math.sign(horizontal?dx:dy));
   },{passive:true,signal});
   root.addEventListener('touchcancel',()=>{touch=undefined;},{signal});
-  const historyChange=()=>{const index=options.slides.findIndex(s=>s.id===decodeHash());if(index<0)return;if(nav.state!=='idle')historyPending=index;else void request(index,false);};
+  const historyChange=()=>{const index=slideIndexFromHash(location.hash);if(index<0)return;if(nav.state!=='idle')historyPending=index;else void request(index,false);};
   window.addEventListener('popstate',historyChange,{signal});window.addEventListener('hashchange',historyChange,{signal});
   document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(frame);last=0;if(!document.hidden)frame=requestAnimationFrame(render);},{signal});
   const fullscreen=root.querySelector<HTMLButtonElement>('[data-fullscreen]');
