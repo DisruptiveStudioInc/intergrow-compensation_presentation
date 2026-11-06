@@ -1,3 +1,5 @@
+import { selectBackgroundSource as chooseBackgroundSource } from './background-selector.js';
+
 /** Build-time image URL variants paired with their intrinsic dimensions. */
 export interface BackgroundImageCandidate {
   src: string;
@@ -24,17 +26,7 @@ export interface ViewportSize {
  * Mobile sources are capped at 1920px to avoid needlessly large texture uploads.
  */
 export function selectBackgroundSource(image: BackgroundImageSet, viewport: ViewportSize): string {
-  const width = positive(viewport.width, image.width);
-  const height = positive(viewport.height, image.height);
-  const dpr = positive(viewport.devicePixelRatio, 1);
-  const coverWidth = Math.max(width, height * image.width / image.height) * dpr;
-  const targetWidth = width <= 680 ? Math.min(coverWidth, 1920) : coverWidth;
-  const candidates = [...(image.variants ?? []), image]
-    .filter(candidate => candidate.width > 0 && candidate.height > 0)
-    .sort((a, b) => a.width - b.width);
-  return candidates.find(candidate => candidate.width >= targetWidth)?.src
-    ?? candidates.at(-1)?.src
-    ?? image.src;
+  return chooseBackgroundSource(image, viewport);
 }
 
 /** Select once and key by original URL so DOM fallback and WebGL share the same URL. */
@@ -43,8 +35,4 @@ export function selectBackgroundSources(
   viewport: ViewportSize,
 ): ReadonlyMap<string, string> {
   return new Map(images.map(image => [image.key ?? image.src, selectBackgroundSource(image, viewport)]));
-}
-
-function positive(value: number, fallback: number): number {
-  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
