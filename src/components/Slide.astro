@@ -9,7 +9,7 @@ const slide=copy[locale][index],ui=labels[locale],rank=index>=6&&index<=13?ranks
   <div class="slide-inner" data-content data-clip-children={index===3||index===5||rank?'':undefined}>
     <div class="slide-copy">
       <p class="eyebrow" data-animate><span class="eyebrow-line"></span>{slide.eyebrow}</p>
-      {index===0 ? <h1 id={`${definition.id}-title`} data-animate>{slide.title}</h1> : <h2 id={`${definition.id}-title`} data-animate>{rank&&<span class="rank-prefix">{ui.rank} / </span>}{slide.title}</h2>}
+      {index===0 ? <h1 id={`${definition.id}-title`} data-animate>{slide.title}</h1> : <h2 id={`${definition.id}-title`} data-animate>{rank&&<><span class="rank-prefix">{ui.rank}</span>{' '}</>}{slide.title}</h2>}
       {slide.subtitle&&<p class="subtitle" data-animate>{slide.subtitle}</p>}
       {slide.body?.map(text=><p class="body-copy" data-animate>{text}</p>)}
       {slide.bullets&&<ul class="benefits" data-animate>{slide.bullets.map((text,i)=><li><span class="benefit-number">{String(i+1).padStart(2,'0')}</span><span>{text}</span></li>)}</ul>}
@@ -19,7 +19,17 @@ const slide=copy[locale][index],ui=labels[locale],rank=index>=6&&index<=13?ranks
     {index===0&&<div class="cover-seal" aria-hidden="true"><span>INTERGROW CAPITAL</span><span class="seal-year">2026</span><span>VISION · GROWTH · LEGACY</span></div>}
     {index===3&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.direct}</span><strong>5<span>%</span></strong><span class="stat-rule"></span><span>InterGrow Capital</span></aside>}
     {index===5&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.personal}</span><strong class="double-stat">5<span>%</span><small>/</small>6<span>%</span></strong><span class="stat-rule"></span><span>{slide.quote}</span></aside>}
-    {index===4&&<div class="rank-ladder" data-animate>{ranks.map((r,i)=><button type="button" data-go={String(i+6)} class="ladder-rank"><span class="ladder-step">{String(i+1).padStart(2,'0')}</span><strong>{i===0?promoterName[locale]:r.name}</strong><span>{r.residual}</span><small>{ui.residual}</small></button>)}</div>}
+    {index===4&&(
+      <div class="rank-ladder" data-animate>
+        {ranks.map((r,i)=>(
+          <button type="button" data-go={String(i+6)} class="ladder-rank">
+            <strong>{i===0?promoterName[locale]:r.name}</strong>
+            <span>{r.residual}</span>
+            <small>{ui.residualShort}{i===0&&<><br />{ui.plan}: {r.personal}</>}</small>
+          </button>
+        ))}
+      </div>
+    )}
     {rank&&<aside class="rank-panel" data-animate>
       <div class="rank-panel-top"><span class="stat-label">{ui.residual}</span><span class="rank-panel-index">{String(index-5).padStart(2,'0')} / 08</span></div>
       <strong class="residual-value">{rank.residual.replace('%','')}<span>%</span></strong>
