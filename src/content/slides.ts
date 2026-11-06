@@ -80,9 +80,27 @@ const fr:SlideCopy[]=[
 ];
 export const copy:Record<Locale,SlideCopy[]>={es,en,fr};
 const background=(src:string,focal:[number,number],brightness=.8):Background=>({src:`/images/${src}.webp`,focal,brightness,scrim:'left',camera:{zoom:.07,drift:.008,parallax:.006}});
+const citySkyline=background('slides/city-skyline',[.77,.55],.95);
+const backgrounds: Record<(typeof ids)[number], Background> = {
+  cover: background('architecture',[.7,.5],.9),
+  growth: background('slides/growth-plan',[.72,.43]),
+  portfolio: background('slides/portfolio',[.72,.5]),
+  direct: background('slides/direct-sales',[.73,.48]),
+  overview: background('slides/plan-overview',[.74,.38]),
+  'promoter-benefit': citySkyline,
+  promoter: background('slides/promoter',[.72,.45]),
+  'rank-120k': background('slides/rank-120k',[.72,.43]),
+  'rank-300k': background('slides/rank-300k',[.74,.5],.9),
+  'rank-600k': background('slides/rank-600k',[.71,.48]),
+  'rank-1-2m': background('slides/rank-1-2m',[.72,.44]),
+  'rank-3m': background('slides/rank-3m',[.74,.45],.9),
+  'rank-6m': background('slides/rank-6m',[.72,.44]),
+  'rank-12m': background('slides/rank-12m',[.73,.5],.9),
+  vision: citySkyline,
+};
 export const slideDefinitions:SlideDefinition[]=ids.map((id,index)=>({
   id,group:index===0?'cover':index<6?'plan':'ranks',
-  background:index===0||index===4||index===14?background('architecture',[.7,.5],.9):index===1||index===2||index===5?background('leadership',[.7,.4],.7):background(index%2?'expansion':'architecture',[.75,.5],.65),
+  background:backgrounds[id],
 }));
 export const directStructure:Record<Locale,string>={es:'3 afiliados directos',en:'3 direct affiliates',fr:'3 affiliés directs'};
 export const promoterName:Record<Locale,string>={es:'Promotor',en:'Promoter',fr:'Promoteur'};

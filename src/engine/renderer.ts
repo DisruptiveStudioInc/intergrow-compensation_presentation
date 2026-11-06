@@ -3,12 +3,17 @@ import { cameraAt, clamp } from './math';
 
 const vertex = `attribute vec2 aPosition; varying vec2 vUv;
 void main(){ vUv=aPosition*0.5+0.5; gl_Position=vec4(aPosition,0.,1.); }`;
+const MAX_CANVAS_PIXELS = 3840 * 2160;
 export function fragmentSource(effect: TransitionDefinition) {
   const custom = Object.entries(effect.uniforms).map(([name, value]) => {
     if (!/^uEffect[A-Za-z0-9_]+$/.test(name)) throw new Error('Custom uniforms must start with uEffect');
     return `uniform ${value.type} ${name};`;
   }).join('\n');
-  return `precision mediump float;
+  return `#ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+    #else
+    precision mediump float;
+    #endif
     varying vec2 vUv;
     uniform sampler2D uFrom, uTo;
     uniform vec2 uResolution, uFromSize, uToSize, uFromFocal, uToFocal, uPointer;
@@ -34,6 +39,7 @@ export class BackgroundRenderer {
   private layers = [document.createElement('div'), document.createElement('div')];
   private gl: WebGLRenderingContext | null = null;
   private program: WebGLProgram | null = null;
+  private maxTextureSize = 0;
   private shaders: WebGLShader[] = [];
   private buffer: WebGLBuffer | null = null;
   private cache = new Map<string, Asset>();
@@ -73,6 +79,7 @@ export class BackgroundRenderer {
       else if(uniform.type==='vec3') gl.uniform3fv(location,uniform.value);
       else gl.uniform4fv(location,uniform.value);
     }
+    this.maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
     this.host.dataset.renderer='webgl';
   }
   private fallback() {
@@ -99,6 +106,7 @@ export class BackgroundRenderer {
       image.onload=()=>finish(image); image.onerror=()=>finish(null); image.src=key;
     }).then(asset=>{
       this.pending.delete(key); if(this.disposed) return asset;
+      if(this.gl && asset.image && Math.max(asset.image.naturalWidth,asset.image.naturalHeight)>this.maxTextureSize) this.fallback();
       const gl=this.gl;
       if(gl) {
         try {
@@ -117,7 +125,7 @@ export class BackgroundRenderer {
   protect(...backgrounds: Background[]) { this.protected=new Set(backgrounds.map(b=>b.src)); }
   private evict() {
     for(const [key,asset] of this.cache) {
-      if(this.cache.size<=6) break;
+      if(this.cache.size<=4) break;
       if(this.protected.has(key)) continue;
       if(asset.texture) this.gl?.deleteTexture(asset.texture); this.cache.delete(key);
     }
@@ -139,8 +147,11 @@ export class BackgroundRenderer {
     });
     if(gl)this.canvas.hidden=reduced;
     if(reduced || !gl || !this.program || !assets[0]?.texture || !assets[1]?.texture) return;
-    const ratio=Math.min(devicePixelRatio||1,1.25);
-    const width=Math.round(this.host.clientWidth*ratio),height=Math.round(this.host.clientHeight*ratio);
+    const cssWidth=this.host.clientWidth,cssHeight=this.host.clientHeight;
+    if(!cssWidth || !cssHeight) return;
+    // Keep high-density backgrounds sharp without making every transition render beyond 4K.
+    const ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(MAX_CANVAS_PIXELS/(cssWidth*cssHeight)));
+    const width=Math.round(cssWidth*ratio),height=Math.round(cssHeight*ratio);
     if(this.canvas.width!==width || this.canvas.height!==height) { this.canvas.width=width; this.canvas.height=height; gl.viewport(0,0,width,height); }
     const u=(name:string)=>gl.getUniformLocation(this.program!,name);
     gl.uniform2f(u('uResolution'),width,height); gl.uniform1f(u('uProgress'),progress); gl.uniform1f(u('uDirection'),direction);
