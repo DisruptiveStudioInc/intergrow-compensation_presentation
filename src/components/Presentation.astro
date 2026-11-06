@@ -4,6 +4,7 @@ import { labels, copy, locales, localePath, slideDefinitions, orderedRankIds, ty
 import '../styles/presentation.css';
 interface Props { locale:Locale; fixture?: boolean }
 const {locale,fixture=false}=Astro.props,ui=labels[locale];
+const canonicalUrl=Astro.site&&!fixture?new URL(localePath(locale),Astro.site):undefined;
 const languageNames:Record<Locale,string>={es:'Español',en:'English',fr:'Français'};
 const fixtureSlides=fixture?slideDefinitions.slice(0,3).map((slide,i)=>({...slide,floating:{position:([.8,.55] as [number,number]),size:130+i*15,glow:'#2898ee66',rotation:i*20,visible:true}})):slideDefinitions;
 const slideIndexById=Object.fromEntries(fixtureSlides.map((slide,index)=>[slide.id,index])) as Partial<Record<SlideId,number>>;
@@ -21,7 +22,8 @@ const rankIds=orderedRankIds();
     <link rel="preload" href="/fonts/AvenirNext-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/AvenirNext-Bold.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={fixtureSlides[0].background.src} as="image" />
-    {locales.map(lang=><link rel="alternate" hreflang={lang} href={localePath(lang)} />)}
+    {canonicalUrl&&<link rel="canonical" href={canonicalUrl} />}
+    {Astro.site&&!fixture&&locales.map(lang=><link rel="alternate" hreflang={lang} href={new URL(localePath(lang),Astro.site)} />)}
   </head>
   <body>
     <main class="presentation" data-presentation data-locale-code={locale} data-fixture={fixture?'true':undefined} aria-label={ui.title}>

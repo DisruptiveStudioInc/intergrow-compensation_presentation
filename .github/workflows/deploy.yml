@@ -21,6 +21,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+        env:
+          PRESENTATION_SITE_URL: ${{ vars.PRESENTATION_SITE_URL }}
   publish:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: verify
@@ -49,6 +51,8 @@ jobs:
           target: production
           push: true
           tags: ${{ steps.image.outputs.name }}
+          build-args: |
+            PRESENTATION_SITE_URL=${{ vars.PRESENTATION_SITE_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
   deploy:

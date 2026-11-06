@@ -98,6 +98,8 @@ IMAGE=intergrow-presentations:local PORT=8080 docker compose -f compose.producti
 
 The multi-stage image verifies/builds with Node/pnpm, then copies only `dist/` into Nginx on port 8080. `/health` is used for container health checks. Production has no source bind mounts. Files under `/_astro/` are hashed and immutable; HTML revalidates. Unknown routes return 404 instead of rendering the Spanish page.
 
+Set the optional build-time `PRESENTATION_SITE_URL` to the public HTTPS origin (for example, `https://presentations.example.com`) when building for production. Astro uses it to emit absolute canonical and locale alternate URLs. Leave it unset for local or preview builds, where those tags are omitted. Docker accepts it as a build argument, and GitHub Actions reads it from the repository variable with the same name.
+
 Production binds to `127.0.0.1` by default. Put the company's reverse proxy in front of `127.0.0.1:8080`, point the chosen domain at the VPS, and terminate HTTPS at that proxy. Change `PORT` for another local port, or `BIND_ADDRESS` when an existing network layout requires it. Domain/TLS setup belongs to the company proxy rather than this static app.
 
 ## GitHub → GHCR → VPS
@@ -113,7 +115,7 @@ Configure these GitHub production environment secrets:
 | `VPS_SSH_KEY` | Deploy account's private SSH key |
 | `VPS_KNOWN_HOSTS` | Verified server host-key line (include `[host]:port` for custom ports) |
 
-Optional repository variables: `DEPLOY_DIR` (default `/opt/intergrow-presentation`, absolute path without spaces), `VPS_SSH_PORT` (22), and `PORT` (8080). Install Docker Engine, Compose v2 supporting `up --wait`, and `flock` on the Linux VPS; ensure the deploy account can create/write its directory. For a private GHCR package, authenticate that account on the VPS once with a read-packages token through `docker login ghcr.io --password-stdin`. The workflow never copies registry credentials to the server.
+Optional repository variables: `PRESENTATION_SITE_URL` (public HTTPS origin used at build time), `DEPLOY_DIR` (default `/opt/intergrow-presentation`, absolute path without spaces), `VPS_SSH_PORT` (22), and `PORT` (8080). Install Docker Engine, Compose v2 supporting `up --wait`, and `flock` on the Linux VPS; ensure the deploy account can create/write its directory. For a private GHCR package, authenticate that account on the VPS once with a read-packages token through `docker login ghcr.io --password-stdin`. The workflow never copies registry credentials to the server.
 
 The deploy step copies Compose plus `release.sh`, pulls the new immutable image, records `.env.previous`, then waits for container health. Failed releases restore the previous image; failed first releases remove the failed container. Releases are serialized. Images are not pruned, so the previous release remains available. A single-container replacement can cause a brief interruption; this is not a zero-downtime deployment.
 
