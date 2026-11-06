@@ -15,7 +15,10 @@ export function validateContent() {
     for(const token of ['{current}','{total}','{title}'])if(!labels[locale].announcement.includes(token))throw new Error(`${locale}: missing announcement token`);
     for(const id of orderedRankIds())if(!ranks[id].name||!ranks[id].residual||!ranks[id].personal||!ranks[id].volume)throw new Error(`${locale}: incomplete rank data ${id}`);
   }
-  for(const slide of slideDefinitions)if(!existsSync(resolve('public',slide.background.src.slice(1))))throw new Error(`Missing background: ${slide.background.src}`);
+  for(const slide of slideDefinitions){
+    const assetPath=resolve('src/assets/backgrounds',slide.background.src.replace(/^\/images\//,''));
+    if(!existsSync(assetPath))throw new Error(`Missing imported background source: ${assetPath}`);
+  }
   if(slideDefinitions.map(s=>s.group).join(',')!==['cover',...Array(5).fill('plan'),...Array(9).fill('ranks')].join(','))throw new Error('Incorrect groups');
   if(slideDefinitions.some(slide=>!slide.layout))throw new Error('Every slide must declare a layout');
   const reordered=[...ids];

@@ -1,12 +1,30 @@
 ---
 import Slide from './Slide.astro';
 import { labels, copy, locales, localePath, slideDefinitions, orderedRankIds, type Locale, type SlideId } from '../content/slides';
+import { getImage } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import '../styles/presentation.css';
+import type { BackgroundImageSet } from '../lib/responsive-backgrounds';
 interface Props { locale:Locale; fixture?: boolean }
 const {locale,fixture=false}=Astro.props,ui=labels[locale];
 const canonicalUrl=Astro.site&&!fixture?new URL(localePath(locale),Astro.site):undefined;
 const languageNames:Record<Locale,string>={es:'Español',en:'English',fr:'Français'};
 const fixtureSlides=fixture?slideDefinitions.slice(0,3).map((slide,i)=>({...slide,floating:{position:([.8,.55] as [number,number]),size:130+i*15,glow:'#2898ee66',rotation:i*20,visible:true}})):slideDefinitions;
+const sourceAssets=import.meta.glob('../assets/backgrounds/**/*.webp',{eager:true,import:'default'}) as Record<string,ImageMetadata>;
+const uniqueBackgrounds=[...new Map(fixtureSlides.map(slide=>[slide.background.src,slide.background])).values()];
+const backgroundImageSets:BackgroundImageSet[]=await Promise.all(uniqueBackgrounds.map(async background=>{
+  const assetKey=`../assets/backgrounds${background.src.replace(/^\/images/,'')}`;
+  const source=sourceAssets[assetKey];
+  if(!source) throw new Error(`Missing imported background source: ${assetKey}`);
+  const variants:{src:string;width:number;height:number}[]=[];
+  for(const width of [1280,1920]){
+    if(source.width<=width) continue;
+    const generated=await getImage({src:source,width,format:'webp'});
+    variants.push({src:generated.src,width:generated.options.width??width,height:generated.options.height??Math.round(source.height*width/source.width)});
+  }
+  return {key:background.src,src:source.src,width:source.width,height:source.height,variants};
+}));
+const initialBackgroundSource=backgroundImageSets.find(image=>image.key===fixtureSlides[0].background.src)?.src??fixtureSlides[0].background.src;
 const slideIndexById=Object.fromEntries(fixtureSlides.map((slide,index)=>[slide.id,index])) as Partial<Record<SlideId,number>>;
 const rankIds=orderedRankIds();
 ---
@@ -21,13 +39,14 @@ const rankIds=orderedRankIds();
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preload" href="/fonts/AvenirNext-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/AvenirNext-Bold.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={fixtureSlides[0].background.src} as="image" />
+    <link rel="preload" href={initialBackgroundSource} as="image" />
+    <script type="application/json" data-background-images set:html={JSON.stringify(backgroundImageSets).replace(/</g,'\\u003c')}></script>
     {canonicalUrl&&<link rel="canonical" href={canonicalUrl} />}
     {Astro.site&&!fixture&&locales.map(lang=><link rel="alternate" hreflang={lang} href={new URL(localePath(lang),Astro.site)} />)}
   </head>
   <body>
     <main class="presentation" data-presentation data-locale-code={locale} data-fixture={fixture?'true':undefined} aria-label={ui.title}>
-      <div class="background" data-background aria-hidden="true" style={`background-image:url('${fixtureSlides[0].background.src}')`}></div>
+      <div class="background" data-background aria-hidden="true" style={`background-image:url('${initialBackgroundSource}')`}></div>
       <div class="readability-scrim" aria-hidden="true"></div>
       <header class="presentation-header">
         <a href={localePath(locale)} class="brand" aria-label="InterGrow Capital"><img src="/images/logo.svg" width="1021" height="251" alt="InterGrow Capital" /></a>
@@ -64,8 +83,12 @@ const rankIds=orderedRankIds();
       import { createPresentation } from '../engine/presentation';
       import { presentation } from '../presentation.config';
       import { labels, type Locale } from '../content/slides';
+      import { selectBackgroundSources, type BackgroundImageSet } from '../lib/responsive-backgrounds';
       import type { SlideDefinition } from '../engine/types';
       const root=document.querySelector<HTMLElement>('[data-presentation]')!;
+      const imageSets=JSON.parse(document.querySelector('[data-background-images]')!.textContent!) as BackgroundImageSet[];
+      // Keep this map as the sole URL choice for preload, WebGL, and DOM fallback.
+      const selectedBackgroundUrls=selectBackgroundSources(imageSets,{width:innerWidth,height:innerHeight,devicePixelRatio:devicePixelRatio||1});
       const languageDropdown=root.querySelector<HTMLDetailsElement>('[data-language-dropdown]');
       if(languageDropdown){
         languageDropdown.querySelectorAll<HTMLAnchorElement>('[data-locale]').forEach(link=>link.addEventListener('click',event=>{
@@ -91,7 +114,9 @@ const rankIds=orderedRankIds();
       root.querySelector('[data-context-loss]')?.addEventListener('click',()=>{
         root.querySelector('canvas')?.getContext('webgl')?.getExtension('WEBGL_lose_context')?.loseContext();
       });
-      const slides:SlideDefinition[]=JSON.parse(root.querySelector('[data-slide-config]')!.textContent!);
+      const slides:SlideDefinition[]=(JSON.parse(root.querySelector('[data-slide-config]')!.textContent!) as SlideDefinition[]).map(slide=>({...slide,background:{...slide.background,src:selectedBackgroundUrls.get(slide.background.src)??slide.background.src}}));
+      const initialBackground=slides[0]?.background.src;
+      if(initialBackground) root.querySelector<HTMLElement>('[data-background]')!.style.backgroundImage=`url('${initialBackground}')`;
       const locale=root.dataset.localeCode as Locale;
       const fixtureTransition=root.dataset.fixture ? (await import('../engine/transitions/crossfade')).crossfade : presentation.transition;
       void createPresentation(root,{
