@@ -13,7 +13,7 @@ it('uses a brand background when image decoding fails and remains operable witho
   const background=slideDefinitions[0].background;
   await renderer.prepare(background);renderer.render(background,background,1,1,0,0,[0,0],true);
   expect(host.dataset.renderer).toBe('fallback');expect(host.querySelector('canvas')!.hidden).toBe(true);
-  expect(host.querySelector<HTMLElement>('.background-layer')!.style.backgroundImage).toBe('none');
+  expect(host.querySelector<HTMLElement>('.background-layer')!.style.backgroundImage).toContain(background.src);
   host.querySelector('canvas')!.dispatchEvent(new Event('webglcontextlost',{cancelable:true}));expect(loss).toHaveBeenCalledOnce();
   renderer.destroy();expect(host.children.length).toBe(0);host.remove();vi.stubGlobal('Image',original);
 });
@@ -22,4 +22,14 @@ it('falls back when a custom shader fails to compile',()=>{
   vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(gl as never);vi.spyOn(console,'warn').mockImplementation(()=>{});
   const host=document.createElement('div');const renderer=new BackgroundRenderer(host,architecturalWipe,()=>{});
   expect(host.dataset.renderer).toBe('fallback');expect(gl.deleteShader).toHaveBeenCalledOnce();expect(gl.deleteProgram).toHaveBeenCalledOnce();renderer.destroy();
+});
+it('owns explicit CSS fallback setup and keeps background URLs on the DOM layers',()=>{
+  vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(null);
+  vi.spyOn(console,'warn').mockImplementation(()=>{});
+  const host=document.createElement('div');const renderer=new BackgroundRenderer(host,architecturalWipe,()=>{});
+  const background=slideDefinitions[0].background;
+  renderer.useFallback();renderer.render(background,background,1,1,0,0,[0,0],true);
+  expect(host.dataset.renderer).toBe('fallback');expect(renderer.canvas.hidden).toBe(true);
+  expect(host.querySelector<HTMLElement>('.background-layer')!.style.backgroundImage).toContain(background.src);
+  renderer.destroy();
 });
