@@ -6,7 +6,7 @@ const {locale,index,definition}=Astro.props;
 const slide=copy[locale][index],ui=labels[locale],rank=index>=6&&index<=13?ranks[index-6]:null;
 ---
 <section id={definition.id} class:list={['slide', { 'slide-cover':index===0,'slide-rank':!!rank,'slide-overview':index===4,'slide-close':index===14 }]} data-slide data-title={slide.title} data-active={index===0?'true':'false'} aria-labelledby={`${definition.id}-title`} tabindex="-1">
-  <div class="slide-inner" data-content>
+  <div class="slide-inner" data-content data-clip-children={index===3||index===5||rank?'':undefined}>
     <div class="slide-copy">
       <p class="eyebrow" data-animate><span class="eyebrow-line"></span>{slide.eyebrow}</p>
       {index===0 ? <h1 id={`${definition.id}-title`} data-animate>{slide.title}</h1> : <h2 id={`${definition.id}-title`} data-animate>{rank&&<span class="rank-prefix">{ui.rank} / </span>}{slide.title}</h2>}

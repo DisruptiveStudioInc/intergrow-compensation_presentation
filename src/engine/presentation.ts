@@ -9,6 +9,12 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   const transition=normalizeTransition(options.transition);
   const slides=Array.from(root.querySelectorAll<HTMLElement>('[data-slide]'));
   if(!slides.length || slides.length!==options.slides.length) throw new Error('Slide markup and configuration must match');
+  const clipContent=transition.clipContent;
+  // Clipping a panel's ancestor prevents the panel from sampling the deck backdrop.
+  const clipTargets=slides.map(slide=>{
+    const content=slide.querySelector<HTMLElement>('[data-clip-children]');
+    return content ? Array.from(content.children) as HTMLElement[] : [slide];
+  });
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const fine=matchMedia('(hover:hover) and (pointer:fine)');
   const backdrop=root.querySelector<HTMLElement>('[data-background]')!;
@@ -49,8 +55,7 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   }
   function clearContentClip(){
     if(!clipsContent)return;
-    slides[from].style.clipPath='';
-    slides[to].style.clipPath='';
+    for(const target of [...clipTargets[from],...clipTargets[to]])target.style.clipPath='';
     clipsContent=false;
   }
   function finish(){
@@ -71,8 +76,8 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
     nav.state='transitioning';root.dataset.state='transitioning';
     fromAge=age;start=clock;
     slides[b].scrollTop=0;slides[b].dataset.entering='true';
-    clipsContent=!!transition.clipContent&&!reduced.matches&&backdrop.dataset.renderer==='webgl';
-    if(clipsContent)slides[b].style.clipPath='inset(100%)';
+    clipsContent=!!clipContent&&!reduced.matches&&backdrop.dataset.renderer==='webgl';
+    if(clipsContent)clipTargets[b].forEach(target=>{target.style.clipPath='inset(100%)';});
     else slides[b].querySelectorAll<HTMLElement>('[data-animate]').forEach(el=>{el.style.opacity='0';});
     floating?.move(options.slides[a].floating,options.slides[b].floating);
     await new Promise<void>(resolve=>{resolveTransition=resolve;if(document.hidden)finish();});
@@ -96,10 +101,14 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
       const p=clamp((clock-start)/duration);
       const progress=transition.easing==='linear'&&!reduced.matches?p:ease(p);
       renderer.render(options.slides[from].background,options.slides[to].background,progress,to>from?1:-1,fromAge+clock-start,clock-start,pointer,reduced.matches);
-      if(clipsContent&&transition.clipContent&&!reduced.matches){
-        const clip=transition.clipContent(p,backdrop.getBoundingClientRect(),slides[from].getBoundingClientRect());
-        slides[from].style.clipPath=clip.from;
-        slides[to].style.clipPath=clip.to;
+      if(clipsContent&&clipContent&&!reduced.matches){
+        const viewport=backdrop.getBoundingClientRect();
+        for(const target of clipTargets[from]){
+          target.style.clipPath=clipContent(p,viewport,target.getBoundingClientRect()).from;
+        }
+        for(const target of clipTargets[to]){
+          target.style.clipPath=clipContent(p,viewport,target.getBoundingClientRect()).to;
+        }
       }else{
         clearContentClip();
         const exiting=slides[from].querySelectorAll<HTMLElement>('[data-animate]');

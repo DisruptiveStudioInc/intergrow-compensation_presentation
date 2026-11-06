@@ -11,8 +11,8 @@ export interface TransitionDefinition {
   durationMs: number;
   /** Linear progress allows effects with timings measured in seconds. */
   easing?: 'linear' | 'smoothstep';
-  /** Clip the live slide content to the same front as the WebGL effect. */
-  clipContent?: (progress: number, viewport: DOMRectReadOnly, slide: DOMRectReadOnly) => { from: string; to: string };
+  /** Clip live content to the WebGL front, using coordinates local to the target. */
+  clipContent?: (progress: number, viewport: DOMRectReadOnly, target: DOMRectReadOnly) => { from: string; to: string };
   uniforms: Record<string, Uniform>;
   contentTiming: { exitEnd: number; enterStart: number; stagger: number };
 }
