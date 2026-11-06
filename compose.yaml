@@ -1,0 +1,16 @@
+services:
+  presentation:
+    build:
+      context: .
+      target: development
+    ports:
+      - "127.0.0.1:${DEV_PORT:-4321}:4321"
+    volumes:
+      - .:/app
+      - dependencies:/app/node_modules
+    # Keep Astro's PID lock and generated files local to each container run.
+    tmpfs:
+      - /app/.astro
+    init: true
+volumes:
+  dependencies:

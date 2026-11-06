@@ -1,0 +1,99 @@
+---
+import Slide from './Slide.astro';
+import { labels, copy, locales, localePath, slideDefinitions, type Locale } from '../content/slides';
+import '../styles/presentation.css';
+interface Props { locale:Locale; fixture?: boolean }
+const {locale,fixture=false}=Astro.props,ui=labels[locale];
+const languageNames:Record<Locale,string>={es:'Español',en:'English',fr:'Français'};
+const fixtureSlides=fixture?slideDefinitions.slice(0,3).map((slide,i)=>({...slide,floating:{position:([.8,.55] as [number,number]),size:130+i*15,glow:'#2898ee66',rotation:i*20,visible:true}})):slideDefinitions;
+---
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1a2e" />
+    <title>{ui.title} — InterGrow Capital</title>
+    <meta name="description" content={copy[locale][1].title} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/fonts/AvenirNext-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/AvenirNext-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={fixtureSlides[0].background.src} as="image" />
+    {locales.map(lang=><link rel="alternate" hreflang={lang} href={localePath(lang)} />)}
+  </head>
+  <body>
+    <main class="presentation" data-presentation data-locale-code={locale} data-fixture={fixture?'true':undefined} aria-label={ui.title}>
+      <div class="background" data-background aria-hidden="true" style={`background-image:url('${fixtureSlides[0].background.src}')`}></div>
+      <div class="readability-scrim" aria-hidden="true"></div>
+      <header class="presentation-header">
+        <a href={localePath(locale)} class="brand" aria-label="InterGrow Capital"><img src="/images/logo.svg" width="1021" height="251" alt="InterGrow Capital" /></a>
+        <nav class="group-navigation" aria-label={ui.navigation}>{ui.groups.slice(0,fixture?2:3).map((group,i)=><button type="button" data-group={['cover','plan','ranks'][i]} aria-pressed={i===0?'true':'false'}><span class="group-number">0{i+1}</span>{group}</button>)}</nav>
+        <nav class="language-navigation" aria-label={ui.languages}>
+          <details class="language-selector" data-language-dropdown>
+            <summary class="language-trigger" aria-label={`${ui.languages}: ${languageNames[locale]}`}>
+              <span lang={locale}>{languageNames[locale]}</span>
+            </summary>
+            <div class="language-menu" aria-label={ui.languages}>
+              {locales.map(lang=><a class="language-option" href={localePath(lang)} data-locale lang={lang} aria-current={lang===locale?'page':undefined}><span class="language-option-code">{lang.toUpperCase()}</span><span>{languageNames[lang]}</span>{lang===locale&&<svg class="language-option-check" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m3 8 3.2 3.2L13 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>}</a>)}
+            </div>
+          </details>
+        </nav>
+      </header>
+      <div class="slides">{fixtureSlides.map((definition,index)=><Slide locale={locale} index={index} definition={definition}/>)}</div>
+      <nav class="slide-indicators" aria-label={ui.slides}>{fixtureSlides.map((_slide,i)=><button type="button" data-go={String(i)} aria-label={`${i+1}. ${copy[locale][i].title}`} aria-current={i===0?'step':undefined}><span class="indicator-dot"></span><span class="indicator-tooltip">{copy[locale][i].title}</span></button>)}</nav>
+      <footer class="presentation-footer">
+        <div class="slide-count"><span data-counter>01</span><span class="count-divider">/</span><span>{String(fixtureSlides.length).padStart(2,'0')}</span><span class="current-label" data-current-label>{ui.title}</span></div>
+        <p class="navigation-hint"><span aria-hidden="true">↓</span>{ui.hint}</p>
+        <div class="slide-controls">
+          {fixture&&<button type="button" class="fixture-control" data-context-loss>Probar fallback</button>}
+          <button type="button" class="fullscreen-button" data-fullscreen aria-label={ui.fullscreen} title={ui.fullscreen} hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg></button>
+          <button type="button" data-previous aria-label={ui.previous} disabled><span aria-hidden="true">←</span></button>
+          <button type="button" data-next aria-label={ui.next}><span aria-hidden="true">→</span></button>
+        </div>
+        <div class="presentation-progress" aria-hidden="true"><span data-progress style={`width:${100/fixtureSlides.length}%`}></span></div>
+      </footer>
+      <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-announcer></p>
+      <script type="application/json" data-slide-config set:html={JSON.stringify(fixtureSlides).replace(/</g,'\\u003c')}></script>
+    </main>
+    <noscript><style>.presentation{height:auto;overflow:visible}.slides{position:relative}.slide{position:relative!important;opacity:1!important;visibility:visible!important;height:auto!important;min-height:100svh}.slide-inner{padding:130px 8vw}.presentation-header,.presentation-footer,.slide-indicators{position:relative}.group-navigation,.slide-controls,.slide-indicators,.begin-button{display:none}.background{position:fixed}</style></noscript>
+    <script>
+      import { createPresentation } from '../engine/presentation';
+      import { presentation } from '../presentation.config';
+      import { labels, type Locale } from '../content/slides';
+      import type { SlideDefinition } from '../engine/types';
+      const root=document.querySelector<HTMLElement>('[data-presentation]')!;
+      const languageDropdown=root.querySelector<HTMLDetailsElement>('[data-language-dropdown]');
+      if(languageDropdown){
+        languageDropdown.querySelectorAll<HTMLAnchorElement>('[data-locale]').forEach(link=>link.addEventListener('click',event=>{
+          event.preventDefault();
+          const destination=new URL(link.href,window.location.href);
+          destination.hash=window.location.hash;
+          window.location.assign(destination);
+        }));
+        languageDropdown.addEventListener('keydown',event=>{
+          if(event.key==='Escape'&&languageDropdown.open){
+            event.preventDefault();
+            languageDropdown.open=false;
+            languageDropdown.querySelector('summary')?.focus();
+          }
+        });
+        languageDropdown.addEventListener('focusout',event=>{
+          if(!languageDropdown.contains(event.relatedTarget as Node|null)) languageDropdown.open=false;
+        });
+        document.addEventListener('pointerdown',event=>{
+          if(!languageDropdown.contains(event.target as Node)) languageDropdown.open=false;
+        });
+      }
+      root.querySelector('[data-context-loss]')?.addEventListener('click',()=>{
+        root.querySelector('canvas')?.getContext('webgl')?.getExtension('WEBGL_lose_context')?.loseContext();
+      });
+      const slides:SlideDefinition[]=JSON.parse(root.querySelector('[data-slide-config]')!.textContent!);
+      const locale=root.dataset.localeCode as Locale;
+      const fixtureTransition=root.dataset.fixture ? (await import('../engine/transitions/crossfade')).crossfade : presentation.transition;
+      void createPresentation(root,{
+        slides,...presentation,transition:fixtureTransition,announcement:labels[locale].announcement,
+        ...(root.dataset.fixture?{floating:{src:'/images/fixture-mark.svg',rings:true,trails:3,position:[.85,.5] as [number,number]}}:{}),
+      }).catch(error=>console.error('Presentation could not initialize',error));
+    </script>
+  </body>
+</html>

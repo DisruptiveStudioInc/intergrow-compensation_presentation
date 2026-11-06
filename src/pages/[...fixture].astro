@@ -1,0 +1,5 @@
+---
+import Presentation from '../components/Presentation.astro';
+export function getStaticPaths(){return import.meta.env.DEV?[{params:{fixture:'dev/floating'}}]:[];}
+---
+<Presentation locale="es" fixture />

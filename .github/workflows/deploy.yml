@@ -1,0 +1,84 @@
+name: Validate, publish, deploy
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: presentation-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+        run: echo "name=ghcr.io/${REPOSITORY,,}:$COMMIT" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: production
+          push: true
+          tags: ${{ steps.image.outputs.name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+  deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy image and retain previous release
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ vars.VPS_SSH_PORT || '22' }}
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/intergrow-presentation' }}
+          PORT: ${{ vars.PORT || '8080' }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_DIR" =~ ^/[a-zA-Z0-9/_-]+$ ]]
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$VPS_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
+          [[ "$PORT" =~ ^[0-9]+$ && "$VPS_SSH_PORT" =~ ^[0-9]+$ ]]
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" "mkdir -p '$DEPLOY_DIR'"
+          scp -P "$VPS_SSH_PORT" compose.production.yaml deploy/release.sh "$VPS_USER@$VPS_HOST:$DEPLOY_DIR/"
+          ssh -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" "cd '$DEPLOY_DIR' && sh release.sh '$IMAGE' '$PORT'"
