@@ -86,6 +86,7 @@ export class BackgroundRenderer {
     this.canvas.hidden=true; this.host.dataset.renderer='fallback';
     this.releaseGpu(); this.gl=null;
   }
+  useFallback() { this.fallback(); }
   private releaseGpu() {
     const gl=this.gl; if(!gl) return;
     this.cache.forEach(asset=>{ if(asset.texture) gl.deleteTexture(asset.texture); asset.texture=null; });
@@ -137,7 +138,7 @@ export class BackgroundRenderer {
     // DOM layers always stay current underneath the canvas, including after context loss.
     [from,to].forEach((background,index)=>{
       const layer=this.layers[index]; const asset=assets[index];
-      const source=asset?.image ? `url(${JSON.stringify(background.src)})` : 'none';
+      const source=asset?.image || this.host.dataset.renderer==='fallback' ? `url(${JSON.stringify(background.src)})` : 'none';
       if(layer.style.backgroundImage!==source) layer.style.backgroundImage=source;
       layer.style.backgroundPosition=`${background.focal[0]*100}% ${background.focal[1]*100}%`;
       layer.style.filter=`brightness(${background.brightness})`;

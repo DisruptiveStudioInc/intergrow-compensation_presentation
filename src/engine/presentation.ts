@@ -25,18 +25,24 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   const previous=root.querySelector<HTMLButtonElement>('[data-previous]');
   const next=root.querySelector<HTMLButtonElement>('[data-next]');
   const groups=Array.from(root.querySelectorAll<HTMLButtonElement>('[data-group]'));
-  const dots=Array.from(root.querySelectorAll<HTMLButtonElement>('[data-go]'));
+  const dots=Array.from(root.querySelectorAll<HTMLButtonElement>('button[data-go]'));
+  const rankLinks=Array.from(root.querySelectorAll<HTMLAnchorElement>('[data-rank-link]'));
   const locales=Array.from(root.querySelectorAll<HTMLAnchorElement>('[data-locale]'));
-  let destroyed=false,floating:FloatingModule|undefined;
+  let destroyed=false,ready=false,floating:FloatingModule|undefined;
   let from=0,to=0,start=0,age=0,fromAge=0,clock=0,last=0,frame=0;
   let resolveTransition:(()=>void)|undefined;
   let clipsContent=false;
   let pointer:[number,number]=[0,0],targetPointer:[number,number]=[0,0];
-  let historyPending:number|undefined;
-  const initial=options.slides.findIndex(s=>s.id===decodeHash());
+  let historyPending:number|undefined,startupIntent:{index:number;push:boolean}|undefined;
+  let running=false;
+  const slideIndexFromHash=(hash:string)=>{
+    if(!hash||hash==='#')return Math.max(0,options.slides.findIndex(s=>s.id==='cover'));
+    try{return options.slides.findIndex(s=>s.id===decodeURIComponent(hash.startsWith('#')?hash.slice(1):hash));}
+    catch{return -1;}
+  };
+  const initial=Math.max(0,slideIndexFromHash(location.hash));
   let nav:NavigationController;
   const renderer=new BackgroundRenderer(backdrop,transition,()=>{ if(resolveTransition) finish(); });
-  function decodeHash(){try{return decodeURIComponent(location.hash.slice(1));}catch{return '';}}
   function updateUi(index:number,announce=true){
     slides.forEach((slide,i)=>{
       const active=i===index;slide.dataset.active=String(active);slide.inert=!active;slide.setAttribute('aria-hidden',String(!active));
@@ -71,7 +77,8 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   nav=new NavigationController(slides.length,Math.max(0,initial),async(a,b)=>{
     from=a;to=b;root.dataset.state='loading';
     renderer.protect(options.slides[a].background,options.slides[b].background);
-    await renderer.prepare(options.slides[b].background);
+    try{await renderer.prepare(options.slides[b].background);}
+    catch(error){if(!destroyed){renderer.useFallback();console.warn('Presentation background preparation failed; using the CSS fallback.',error);}}
     if(destroyed)return;
     nav.state='transitioning';root.dataset.state='transitioning';
     fromAge=age;start=clock;
@@ -82,9 +89,15 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
     floating?.move(options.slides[a].floating,options.slides[b].floating);
     await new Promise<void>(resolve=>{resolveTransition=resolve;if(document.hidden)finish();});
     delete slides[b].dataset.entering;root.dataset.state='idle';
-    for(const n of [b-1,b+1])if(options.slides[n])void renderer.prepare(options.slides[n].background);
+    for(const n of [b-1,b+1])if(options.slides[n])void renderer.prepare(options.slides[n].background).catch(()=>renderer.useFallback());
   });
   async function request(index:number,push=true){
+    if(!ready){
+      const target=Math.trunc(index);
+      if(!Number.isFinite(index)||target<0||target>=slides.length||target===nav.current||startupIntent)return;
+      startupIntent={index:target,push};
+      return;
+    }
     if(nav.state!=='idle')return;
     const changed=await nav.goTo(index);
     if(historyPending!==undefined){const pending=historyPending;historyPending=undefined;void request(pending,false);return;}
@@ -122,17 +135,23 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
       renderer.render(options.slides[from].background,options.slides[from].background,1,1,age,age,pointer,reduced.matches);
       floating?.render(1,clock,reduced.matches);
     }
+    if(!document.hidden)frame=requestAnimationFrame(render);
+  }
+  function startFrameLoop(){
+    if(destroyed||!ready||document.hidden||running)return;
+    running=true;
     frame=requestAnimationFrame(render);
   }
-  from=to=nav.current;root.dataset.state='loading';root.dataset.enhanced='true';updateUi(nav.current,false);
-  renderer.protect(options.slides[from].background);await renderer.prepare(options.slides[from].background);
-  if(options.floating){const {createFloating}=await import('./floating');if(!destroyed){floating=createFloating(root,options.floating,slides);floating.move(options.slides[from].floating,options.slides[from].floating);}}
-  if(destroyed)return {destroy(){}};
-  root.dataset.state='idle';
-  for(const n of [from-1,from+1])if(options.slides[n])void renderer.prepare(options.slides[n].background);
-  frame=requestAnimationFrame(render);
+  from=to=nav.current;root.dataset.state='loading';root.dataset.enhanced='true';root.setAttribute('aria-busy','true');updateUi(nav.current,false);
   previous?.addEventListener('click',()=>void request(nav.current-1),{signal});next?.addEventListener('click',()=>void request(nav.current+1),{signal});
   dots.forEach(b=>b.addEventListener('click',()=>void request(Number(b.dataset.go)),{signal}));
+  rankLinks.forEach(link=>link.addEventListener('click',event=>{
+    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;
+    const index=Number(link.dataset.go);
+    if(!Number.isInteger(index)||index<0||index>=slides.length)return;
+    event.preventDefault();
+    void request(index);
+  },{signal}));
   groups.forEach(b=>b.addEventListener('click',()=>void request(options.slides.findIndex(s=>s.group===b.dataset.group)),{signal}));
   root.addEventListener('pointermove',e=>{if(fine.matches&&!reduced.matches)targetPointer=[(e.clientX/innerWidth-.5)*2,-(e.clientY/innerHeight-.5)*2];},{signal});
   root.addEventListener('pointerleave',()=>{targetPointer=[0,0];},{signal});
@@ -166,12 +185,29 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
     void request(nav.current+Math.sign(horizontal?dx:dy));
   },{passive:true,signal});
   root.addEventListener('touchcancel',()=>{touch=undefined;},{signal});
-  const historyChange=()=>{const index=options.slides.findIndex(s=>s.id===decodeHash());if(index<0)return;if(nav.state!=='idle')historyPending=index;else void request(index,false);};
+  const historyChange=()=>{
+    const index=slideIndexFromHash(location.hash);if(index<0)return;
+    // Browser history is authoritative and can replace a click captured during startup.
+    if(!ready){startupIntent=index===nav.current?undefined:{index,push:false};return;}
+    if(nav.state!=='idle')historyPending=index;else void request(index,false);
+  };
   window.addEventListener('popstate',historyChange,{signal});window.addEventListener('hashchange',historyChange,{signal});
-  document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(frame);last=0;if(!document.hidden)frame=requestAnimationFrame(render);},{signal});
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){if(frame)cancelAnimationFrame(frame);frame=0;running=false;last=0;if(resolveTransition)finish();}
+    else{last=0;startFrameLoop();}
+  },{signal});
   const fullscreen=root.querySelector<HTMLButtonElement>('[data-fullscreen]');
   if(fullscreen){fullscreen.hidden=!document.fullscreenEnabled;fullscreen.addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await root.requestFullscreen();}catch{/* Browser may deny fullscreen; navigation remains available. */}},{signal});}
-  const destroy=()=>{destroyed=true;clearContentClip();abort.abort();cancelAnimationFrame(frame);renderer.destroy();floating?.destroy();resolveTransition?.();};
+  const destroy=()=>{destroyed=true;ready=false;running=false;startupIntent=undefined;root.removeAttribute('aria-busy');clearContentClip();abort.abort();cancelAnimationFrame(frame);frame=0;renderer.destroy();floating?.destroy();resolveTransition?.();};
   window.addEventListener('pagehide',event=>{if(!event.persisted)destroy();},{signal});
+  try{renderer.protect(options.slides[from].background);await renderer.prepare(options.slides[from].background);}
+  catch(error){if(!destroyed){renderer.useFallback();console.warn('Initial presentation background failed; using the CSS fallback.',error);}}
+  if(options.floating){try{const {createFloating}=await import('./floating');if(!destroyed){floating=createFloating(root,options.floating,slides);floating.move(options.slides[from].floating,options.slides[from].floating);}}catch(error){console.warn('Presentation decoration could not initialize.',error);}}
+  if(destroyed)return {destroy(){}};
+  ready=true;root.removeAttribute('aria-busy');root.dataset.state='idle';
+  for(const n of [from-1,from+1])if(options.slides[n])void renderer.prepare(options.slides[n].background).catch(()=>renderer.useFallback());
+  startFrameLoop();
+  const queued=startupIntent;startupIntent=undefined;
+  if(queued)void request(queued.index,queued.push);
   return { navigation:nav, destroy };
 }

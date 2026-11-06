@@ -1,41 +1,41 @@
 ---
-import { copy, labels, ranks, promoterName, directStructure, type Locale } from '../content/slides';
-import type { SlideDefinition } from '../engine/types';
-interface Props { locale:Locale; index:number; definition:SlideDefinition }
-const {locale,index,definition}=Astro.props;
-const slide=copy[locale][index],ui=labels[locale],rank=index>=6&&index<=13?ranks[index-6]:null;
+import { copy, labels, ranks, directStructure, type AppSlideDefinition, type Locale, type RankSlideId, type SlideId } from '../content/slides';
+interface Props { locale:Locale; definition:AppSlideDefinition; slideIndexById:Partial<Record<string,number>>; rankIds:RankSlideId[] }
+const {locale,definition,slideIndexById,rankIds}=Astro.props;
+const slide=copy[locale][definition.id as SlideId],ui=labels[locale];
+const rank=definition.layout==='rank'?ranks[definition.id as RankSlideId]:null;
 ---
-<section id={definition.id} class:list={['slide', { 'slide-cover':index===0,'slide-rank':!!rank,'slide-overview':index===4,'slide-close':index===14 }]} data-slide data-title={slide.title} data-active={index===0?'true':'false'} aria-labelledby={`${definition.id}-title`} tabindex="-1">
-  <div class="slide-inner" data-content data-clip-children={index===3||index===5||rank?'':undefined}>
+<section id={definition.id} class:list={['slide', { 'slide-cover':definition.layout==='cover','slide-rank':!!rank,'slide-overview':definition.layout==='overview','slide-close':definition.layout==='closing' }]} data-slide data-title={slide.title} data-active={definition.layout==='cover'?'true':'false'} aria-labelledby={`${definition.id}-title`} tabindex="-1">
+  <div class="slide-inner" data-content data-clip-children={['direct','promoter-benefit','rank'].includes(definition.layout)?'':undefined}>
     <div class="slide-copy">
       <p class="eyebrow" data-animate><span class="eyebrow-line"></span>{slide.eyebrow}</p>
-      {index===0 ? <h1 id={`${definition.id}-title`} data-animate>{slide.title}</h1> : <h2 id={`${definition.id}-title`} data-animate>{rank&&<><span class="rank-prefix">{ui.rank}</span>{' '}</>}{slide.title}</h2>}
+      {definition.layout==='cover' ? <h1 id={`${definition.id}-title`} data-animate>{slide.title}</h1> : <h2 id={`${definition.id}-title`} data-animate>{rank&&<><span class="rank-prefix">{ui.rank}</span>{' '}</>}{slide.title}</h2>}
       {slide.subtitle&&<p class="subtitle" data-animate>{slide.subtitle}</p>}
       {slide.body?.map(text=><p class="body-copy" data-animate>{text}</p>)}
       {slide.bullets&&<ul class="benefits" data-animate>{slide.bullets.map((text,i)=><li><span class="benefit-number">{String(i+1).padStart(2,'0')}</span><span>{text}</span></li>)}</ul>}
       {slide.quote&&<p class="slide-quote" data-animate>{slide.quote}</p>}
-      {index===0&&<button type="button" class="begin-button" data-go="1" data-animate>{ui.begin}<span aria-hidden="true">↗</span></button>}
+      {definition.layout==='cover'&&<button type="button" class="begin-button" data-go="1" data-animate>{ui.begin}<span aria-hidden="true">↗</span></button>}
     </div>
-    {index===0&&<div class="cover-seal" aria-hidden="true"><span>INTERGROW CAPITAL</span><span class="seal-year">2026</span><span>VISION · GROWTH · LEGACY</span></div>}
-    {index===3&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.direct}</span><strong>5<span>%</span></strong><span class="stat-rule"></span><span>InterGrow Capital</span></aside>}
-    {index===5&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.personal}</span><strong class="double-stat">5<span>%</span><small>/</small>6<span>%</span></strong><span class="stat-rule"></span><span>{slide.quote}</span></aside>}
-    {index===4&&(
+    {definition.layout==='cover'&&<div class="cover-seal" aria-hidden="true"><span>INTERGROW CAPITAL</span><span class="seal-year">2026</span><span>VISION · GROWTH · LEGACY</span></div>}
+    {definition.layout==='direct'&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.direct}</span><strong>5<span>%</span></strong><span class="stat-rule"></span><span>InterGrow Capital</span></aside>}
+    {definition.layout==='promoter-benefit'&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.personal}</span><strong class="double-stat">5<span>%</span><small>/</small>6<span>%</span></strong><span class="stat-rule"></span><span>{slide.quote}</span></aside>}
+    {definition.layout==='overview'&&(
       <div class="rank-ladder" data-animate>
-        {ranks.map((r,i)=>(
-          <button type="button" data-go={String(i+6)} class="ladder-rank">
-            <strong>{i===0?promoterName[locale]:r.name}</strong>
+        {rankIds.map(id=>{const r=ranks[id];const destination=slideIndexById[id];return destination===undefined?null:(
+          <a href={`#${id}`} data-rank-link data-go={String(destination)} class="ladder-rank">
+            <strong>{copy[locale][id].title}</strong>
             <span>{r.residual}</span>
-            <small>{ui.residualShort}{i===0&&<><br />{ui.plan}: {r.personal}</>}</small>
-          </button>
-        ))}
+            <small>{ui.residualShort}{id==='promoter'&&<><br />{ui.plan}: {r.personal}</>}</small>
+          </a>
+        );})}
       </div>
     )}
     {rank&&<aside class="rank-panel" data-animate>
-      <div class="rank-panel-top"><span class="stat-label">{ui.residual}</span><span class="rank-panel-index">{String(index-5).padStart(2,'0')} / 08</span></div>
+        <div class="rank-panel-top"><span class="stat-label">{ui.residual}</span><span class="rank-panel-index">{String(rankIds.indexOf(definition.id as RankSlideId)+1).padStart(2,'0')} / 08</span></div>
       <strong class="residual-value">{rank.residual.replace('%','')}<span>%</span></strong>
       <div class="rank-requirements">
         <div><span>{ui.personal}</span><strong>{rank.personal}</strong></div>
-        {rank.structure&&<div><span>{ui.structure}</span><strong>{index===7?directStructure[locale]:rank.structure}</strong></div>}
+        {rank.structure&&<div><span>{ui.structure}</span><strong>{definition.id==='rank-120k'?directStructure[locale]:rank.structure}</strong></div>}
         <div><span>{ui.volume}</span><strong>{rank.volume}</strong></div>
       </div>
       <div class="rank-bonuses">
@@ -43,6 +43,6 @@ const slide=copy[locale][index],ui=labels[locale],rank=index>=6&&index<=13?ranks
         {'world' in rank&&<div><strong>{rank.world}</strong><span>{ui.world}</span></div>}
       </div>
     </aside>}
-    {index===14&&<div class="closing-values" data-animate>{ui.closing.map((title,i)=><div><span class="benefit-number">0{i+1}</span><h3>{title}</h3><p>{ui.closingBody[i]}</p></div>)}</div>}
+    {definition.layout==='closing'&&<div class="closing-values" data-animate>{ui.closing.map((title,i)=><div><span class="benefit-number">0{i+1}</span><h3>{title}</h3><p>{ui.closingBody[i]}</p></div>)}</div>}
   </div>
 </section>

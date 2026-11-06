@@ -10,6 +10,7 @@ EXPOSE 4321
 CMD ["pnpm", "dev"]
 
 FROM base AS build
+ARG PRESENTATION_SITE_URL
 COPY . .
 RUN pnpm verify
 
