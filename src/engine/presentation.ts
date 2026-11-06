@@ -25,7 +25,8 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   const previous=root.querySelector<HTMLButtonElement>('[data-previous]');
   const next=root.querySelector<HTMLButtonElement>('[data-next]');
   const groups=Array.from(root.querySelectorAll<HTMLButtonElement>('[data-group]'));
-  const dots=Array.from(root.querySelectorAll<HTMLButtonElement>('[data-go]'));
+  const dots=Array.from(root.querySelectorAll<HTMLButtonElement>('button[data-go]'));
+  const rankLinks=Array.from(root.querySelectorAll<HTMLAnchorElement>('[data-rank-link]'));
   const locales=Array.from(root.querySelectorAll<HTMLAnchorElement>('[data-locale]'));
   let destroyed=false,ready=false,floating:FloatingModule|undefined;
   let from=0,to=0,start=0,age=0,fromAge=0,clock=0,last=0,frame=0;
@@ -144,6 +145,13 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   from=to=nav.current;root.dataset.state='loading';root.dataset.enhanced='true';root.setAttribute('aria-busy','true');updateUi(nav.current,false);
   previous?.addEventListener('click',()=>void request(nav.current-1),{signal});next?.addEventListener('click',()=>void request(nav.current+1),{signal});
   dots.forEach(b=>b.addEventListener('click',()=>void request(Number(b.dataset.go)),{signal}));
+  rankLinks.forEach(link=>link.addEventListener('click',event=>{
+    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.hasAttribute('download')||(link.target&&link.target!=='_self'))return;
+    const index=Number(link.dataset.go);
+    if(!Number.isInteger(index)||index<0||index>=slides.length)return;
+    event.preventDefault();
+    void request(index);
+  },{signal}));
   groups.forEach(b=>b.addEventListener('click',()=>void request(options.slides.findIndex(s=>s.group===b.dataset.group)),{signal}));
   root.addEventListener('pointermove',e=>{if(fine.matches&&!reduced.matches)targetPointer=[(e.clientX/innerWidth-.5)*2,-(e.clientY/innerHeight-.5)*2];},{signal});
   root.addEventListener('pointerleave',()=>{targetPointer=[0,0];},{signal});

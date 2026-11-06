@@ -22,11 +22,11 @@ const rank=definition.layout==='rank'?ranks[definition.id as RankSlideId]:null;
     {definition.layout==='overview'&&(
       <div class="rank-ladder" data-animate>
         {rankIds.map(id=>{const r=ranks[id];const destination=slideIndexById[id];return destination===undefined?null:(
-          <button type="button" data-go={String(destination)} class="ladder-rank">
+          <a href={`#${id}`} data-rank-link data-go={String(destination)} class="ladder-rank">
             <strong>{copy[locale][id].title}</strong>
             <span>{r.residual}</span>
             <small>{ui.residualShort}{id==='promoter'&&<><br />{ui.plan}: {r.personal}</>}</small>
-          </button>
+          </a>
         );})}
       </div>
     )}

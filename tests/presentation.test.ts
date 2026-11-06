@@ -2,8 +2,8 @@ import { beforeEach,afterEach,it,expect,vi } from 'vitest';
 import { createPresentation } from '../src/engine/presentation';
 import { architecturalWipe } from '../src/engine/transitions/architectural-wipe';
 import { slideDefinitions } from '../src/content/slides';
-const rendererState=vi.hoisted(()=>({prepare:vi.fn(async()=>{}),fallback:vi.fn(),destroy:vi.fn()}));
-vi.mock('../src/engine/renderer',()=>({BackgroundRenderer:class{protect(){}prepare(...args:unknown[]){return rendererState.prepare(...args)}useFallback(){rendererState.fallback()}render(){}destroy(){rendererState.destroy()}}}));
+const rendererState=vi.hoisted(()=>({prepare:vi.fn(async(_background?:unknown)=>{}),fallback:vi.fn(),destroy:vi.fn()}));
+vi.mock('../src/engine/renderer',()=>({BackgroundRenderer:class{protect(){}prepare(background:unknown){return rendererState.prepare(background)}useFallback(){rendererState.fallback()}render(){}destroy(){rendererState.destroy()}}}));
 let callbacks=new Map<number,FrameRequestCallback>(),time=0,id=0;
 let root:HTMLElement;
 async function advance(){for(let i=0;i<30;i++){await Promise.resolve();time+=50;const batch=[...callbacks.values()];callbacks.clear();batch.forEach(callback=>callback(time));}await Promise.resolve();await Promise.resolve();}
@@ -14,7 +14,7 @@ beforeEach(()=>{
   vi.stubGlobal('requestAnimationFrame',(cb:FrameRequestCallback)=>{callbacks.set(++id,cb);return id;});
   vi.stubGlobal('cancelAnimationFrame',(key:number)=>callbacks.delete(key));
   root=document.createElement('main');
-  root.innerHTML=`<div data-background></div><div data-announcer></div><div data-progress></div><span data-counter></span><span data-current-label></span><button data-previous></button><button data-next></button><a data-locale href='/fr/'></a><button data-group='plan'></button>`+slideDefinitions.slice(0,3).map((s,i)=>`<section data-slide id='${s.id}' data-title='Title ${i}' tabindex='-1'><p data-animate>Slide ${i}</p><button data-go='${(i+1)%3}'>jump</button></section><button data-go='${i}'>${i}</button>`).join('');
+  root.innerHTML=`<div data-background></div><div data-announcer></div><div data-progress></div><span data-counter></span><span data-current-label></span><button data-previous></button><button data-next></button><a data-locale href='/fr/'></a><button data-group='plan'></button>`+slideDefinitions.slice(0,3).map((s,i)=>`<section data-slide id='${s.id}' data-title='Title ${i}' tabindex='-1'><p data-animate>Slide ${i}</p><a data-rank-link data-go='${(i+1)%3}' href='#${slideDefinitions[(i+1)%3].id}'>rank</a><button data-go='${(i+1)%3}'>jump</button></section><button data-go='${i}'>${i}</button>`).join('');
   document.body.append(root);
 });
 afterEach(()=>{root.remove();vi.unstubAllGlobals();});
@@ -139,4 +139,30 @@ it('keeps one frame loop across visibility changes and tears it down on destroy'
   Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));expect(callbacks.size).toBe(1);
   app.destroy();expect(callbacks.size).toBe(0);expect(rendererState.destroy).toHaveBeenCalledOnce();
   if(originalHidden)Object.defineProperty(document,'hidden',originalHidden);else delete (document as {hidden?:boolean}).hidden;
+});
+it('keeps overview rank links native until enhancement and routes ordinary and keyboard activation through one transition',async()=>{
+  const link=root.querySelector<HTMLAnchorElement>('[data-rank-link]')!;
+  expect(link.getAttribute('href')).toBe(`#${slideDefinitions[1].id}`);
+  const app=await createPresentation(root,{slides:slideDefinitions.slice(0,3),transition:architecturalWipe,announcement:'{current}'});
+  const modified=new MouseEvent('click',{bubbles:true,cancelable:true,button:0,ctrlKey:true});
+  let modifiedWasPrevented:boolean|undefined;
+  link.addEventListener('click',event=>{modifiedWasPrevented=event.defaultPrevented;event.preventDefault();},{once:true});
+  link.dispatchEvent(modified);
+  expect(modifiedWasPrevented).toBe(false);expect(modified.defaultPrevented).toBe(true);expect(location.hash).toBe('');expect(app.navigation!.current).toBe(0);
+
+  const primary=new MouseEvent('click',{bubbles:true,cancelable:true,button:0,detail:1});
+  let primaryWasPrevented:boolean|undefined;
+  link.addEventListener('click',event=>{primaryWasPrevented=event.defaultPrevented;event.preventDefault();},{once:true});
+  link.dispatchEvent(primary);expect(primaryWasPrevented).toBe(true);await advance();
+  expect(app.navigation!.current).toBe(1);expect(location.hash).toBe(`#${slideDefinitions[1].id}`);
+
+  // Browsers dispatch a detail=0 click for Enter activation of a focused link.
+  const activeLink=root.querySelectorAll<HTMLAnchorElement>('[data-rank-link]')[1];
+  expect(activeLink.getAttribute('href')).toBe(`#${slideDefinitions[2].id}`);
+  const keyboardActivation=new MouseEvent('click',{bubbles:true,cancelable:true,button:0,detail:0});
+  let keyboardWasPrevented:boolean|undefined;
+  activeLink.addEventListener('click',event=>{keyboardWasPrevented=event.defaultPrevented;event.preventDefault();},{once:true});
+  activeLink.dispatchEvent(keyboardActivation);expect(keyboardWasPrevented).toBe(true);
+  await advance();expect(app.navigation!.current).toBe(2);expect(location.hash).toBe(`#${slideDefinitions[2].id}`);
+  app.destroy();
 });
