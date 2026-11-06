@@ -76,7 +76,7 @@ const rankIds=orderedRankIds();
     {Astro.site&&!fixture&&locales.map(lang=><link rel="alternate" hreflang={lang} href={new URL(localePath(lang),Astro.site)} />)}
   </head>
   <body>
-    <main class="presentation" data-presentation data-locale-code={locale} data-fixture={fixture?'true':undefined} aria-label={ui.title}>
+    <main class="presentation" data-presentation data-announcement={ui.announcement} data-fixture={fixture?'true':undefined} aria-label={ui.title}>
       <div class="background" data-background aria-hidden="true"></div>
       <div class="readability-scrim" aria-hidden="true"></div>
       <header class="presentation-header">
@@ -131,7 +131,6 @@ const rankIds=orderedRankIds();
     <script>
       import { createPresentation } from '../engine/presentation';
       import { presentation } from '../presentation.config';
-      import { labels, type Locale } from '../content/slides';
       import type { SlideDefinition } from '../engine/types';
       import { selectBackgroundSources, type BackgroundImageSet } from '../lib/responsive-backgrounds';
       const root=document.querySelector<HTMLElement>('[data-presentation]')!;
@@ -166,10 +165,9 @@ const rankIds=orderedRankIds();
         root.querySelector('canvas')?.getContext('webgl')?.getExtension('WEBGL_lose_context')?.loseContext();
       });
       const slides:SlideDefinition[]=(JSON.parse(root.querySelector('[data-slide-config]')!.textContent!) as SlideDefinition[]).map(slide=>({...slide,background:{...slide.background,src:selectedBackgroundUrls.get(slide.background.src)??slide.background.src}}));
-      const locale=root.dataset.localeCode as Locale;
       const fixtureTransition=root.dataset.fixture ? (await import('../engine/transitions/crossfade')).crossfade : presentation.transition;
       void createPresentation(root,{
-        slides,...presentation,transition:fixtureTransition,announcement:labels[locale].announcement,
+        slides,...presentation,transition:fixtureTransition,announcement:root.dataset.announcement!,
         ...(root.dataset.fixture?{floating:{src:'/images/fixture-mark.svg',rings:true,trails:3,position:[.85,.5] as [number,number]}}:{}),
       }).catch(error=>console.error('Presentation could not initialize',error));
     </script>
