@@ -17,8 +17,8 @@ const rank=definition.layout==='rank'?ranks[definition.id as RankSlideId]:null;
       {definition.layout==='cover'&&<button type="button" class="begin-button" data-go="1" data-animate>{ui.begin}<span aria-hidden="true">↗</span></button>}
     </div>
     {definition.layout==='cover'&&<div class="cover-seal" aria-hidden="true"><span>INTERGROW CAPITAL</span><span class="seal-year">2026</span><span>VISION · GROWTH · LEGACY</span></div>}
-    {definition.layout==='direct'&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.direct}</span><strong>5<span>%</span></strong><span class="stat-rule"></span><span>InterGrow Capital</span></aside>}
-    {definition.layout==='promoter-benefit'&&<aside class="feature-stat" data-animate><span class="stat-label">{ui.personal}</span><strong class="double-stat">5<span>%</span><small>/</small>6<span>%</span></strong><span class="stat-rule"></span><span>{slide.quote}</span></aside>}
+    {definition.layout==='direct'&&<aside class="feature-stat" data-card-glow data-animate><span class="stat-label">{ui.direct}</span><strong>5<span>%</span></strong><span class="stat-rule"></span><span>InterGrow Capital</span></aside>}
+    {definition.layout==='promoter-benefit'&&<aside class="feature-stat" data-card-glow data-animate><span class="stat-label">{ui.personal}</span><strong class="double-stat">5<span>%</span><small>/</small>6<span>%</span></strong><span class="stat-rule"></span><span>{slide.quote}</span></aside>}
     {definition.layout==='overview'&&(
       <div class="rank-ladder" data-animate>
         {rankIds.map(id=>{const r=ranks[id];const destination=slideIndexById[id];return destination===undefined?null:(
@@ -30,7 +30,7 @@ const rank=definition.layout==='rank'?ranks[definition.id as RankSlideId]:null;
         );})}
       </div>
     )}
-    {rank&&<aside class="rank-panel" data-animate>
+    {rank&&<aside class="rank-panel" data-card-glow data-animate>
         <div class="rank-panel-top"><span class="stat-label">{ui.residual}</span><span class="rank-panel-index">{String(rankIds.indexOf(definition.id as RankSlideId)+1).padStart(2,'0')} / 08</span></div>
       <strong class="residual-value">{rank.residual.replace('%','')}<span>%</span></strong>
       <div class="rank-requirements">

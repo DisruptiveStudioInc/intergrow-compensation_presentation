@@ -155,6 +155,29 @@ export async function createPresentation(root: HTMLElement, options: Presentatio
   groups.forEach(b=>b.addEventListener('click',()=>void request(options.slides.findIndex(s=>s.group===b.dataset.group)),{signal}));
   root.addEventListener('pointermove',e=>{if(fine.matches&&!reduced.matches)targetPointer=[(e.clientX/innerWidth-.5)*2,-(e.clientY/innerHeight-.5)*2];},{signal});
   root.addEventListener('pointerleave',()=>{targetPointer=[0,0];},{signal});
+  for (const card of root.querySelectorAll<HTMLElement>('[data-card-glow]')) {
+    const dividers = Array.from(card.querySelectorAll<HTMLElement>('.stat-rule, .rank-requirements > div, .rank-bonuses > div'));
+    const moveGlow = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      const bounds = card.getBoundingClientRect();
+      const dividerBounds = dividers.map(divider => divider.getBoundingClientRect());
+
+      card.style.setProperty('--card-light-x', `${event.clientX - bounds.left}px`);
+      card.style.setProperty('--card-light-y', `${event.clientY - bounds.top}px`);
+      card.style.setProperty('--card-light-radius', `${bounds.width * .7}px`);
+      card.style.setProperty('--card-light-size', `${bounds.width}px ${bounds.height}px`);
+      dividers.forEach((divider, index) => {
+        const line = dividerBounds[index];
+        divider.style.setProperty('--card-light-offset', `${bounds.left - line.left}px ${bounds.top - line.top}px`);
+      });
+      card.setAttribute('data-card-glow-active', '');
+    };
+    const hideGlow = () => card.removeAttribute('data-card-glow-active');
+    card.addEventListener('pointerenter', moveGlow, {signal});
+    card.addEventListener('pointermove', moveGlow, {signal});
+    card.addEventListener('pointerleave', hideGlow, {signal});
+    card.addEventListener('pointercancel', hideGlow, {signal});
+  }
   window.addEventListener('keydown',e=>{
     if(e.altKey||e.ctrlKey||e.metaKey||isInteractive(e.target))return;
     const direction=['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)?1:['ArrowLeft','ArrowUp','PageUp'].includes(e.key)?-1:0;

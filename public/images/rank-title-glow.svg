@@ -19,9 +19,15 @@
       <mpath href="#ellipse-path"/>
     </animateMotion>
   </circle>
-  <circle r="280" fill="url(#glow-cyan)">
+  <g>
     <animateMotion dur="30s" repeatCount="indefinite" rotate="auto">
       <mpath href="#sinus-path"/>
     </animateMotion>
-  </circle>
+    <circle r="280" fill="url(#glow-cyan)">
+      <animateTransform attributeName="transform" type="scale"
+        values="1; 3; 1.75; 2.5; 1" dur="56s" repeatCount="indefinite"
+        calcMode="spline" keyTimes="0; .25; .5; .75; 1"
+        keySplines=".42 0 .58 1; .42 0 .58 1; .42 0 .58 1; .42 0 .58 1"/>
+    </circle>
+  </g>
 </svg>
