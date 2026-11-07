@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="glow-cyan">
+      <stop offset="0" stop-color="#66D9FF" stop-opacity=".9"/>
+      <stop offset=".46" stop-color="#37A6FA" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#37A6FA" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-blue">
+      <stop offset=".1" stop-color="#1F59CC" stop-opacity=".9"/>
+      <stop offset=".6" stop-color="#0756B8" stop-opacity=".46"/>
+      <stop offset="1" stop-color="#0756B8" stop-opacity="0"/>
+    </radialGradient>
+    <path id="sinus-path" d="M 800 450 C 800 250, 1250 250, 1250 450 C 1250 650, 800 650, 800 450 C 800 250, 350 250, 350 450 C 350 650, 800 650, 800 450 Z"/>
+    <path id="ellipse-path" d="M 800 18 C 420 18, 18 180, 18 450 C 18 720, 420 882, 800 882 C 1180 882, 1582 720, 1582 450 C 1582 180, 1180 18, 800 18 Z"/>
+  </defs>
+  <path fill="#2898ee" d="M0 0h1600v900H0z"/>
+  <circle r="560" fill="url(#glow-blue)">
+    <animateMotion dur="48s" repeatCount="indefinite" rotate="auto">
+      <mpath href="#ellipse-path"/>
+    </animateMotion>
+  </circle>
+  <circle r="280" fill="url(#glow-cyan)">
+    <animateMotion dur="30s" repeatCount="indefinite" rotate="auto">
+      <mpath href="#sinus-path"/>
+    </animateMotion>
+  </circle>
+</svg>

@@ -9,7 +9,7 @@ const rank=definition.layout==='rank'?ranks[definition.id as RankSlideId]:null;
   <div class="slide-inner" data-content data-clip-children={['direct','promoter-benefit','rank'].includes(definition.layout)?'':undefined}>
     <div class="slide-copy">
       <p class="eyebrow" data-animate><span class="eyebrow-line"></span>{slide.eyebrow}</p>
-      {definition.layout==='cover' ? <h1 id={`${definition.id}-title`} data-animate>{slide.title}</h1> : <h2 id={`${definition.id}-title`} data-animate>{rank&&<><span class="rank-prefix">{ui.rank}</span>{' '}</>}{slide.title}</h2>}
+      {definition.layout==='cover' ? <h1 id={`${definition.id}-title`} data-animate>{slide.title}</h1> : <h2 id={`${definition.id}-title`} data-animate>{rank&&<><span class="rank-prefix">{ui.rank}</span><span class="rank-name">{slide.title}</span></>}{!rank&&slide.title}</h2>}
       {slide.subtitle&&<p class="subtitle" data-animate>{slide.subtitle}</p>}
       {slide.body?.map(text=><p class="body-copy" data-animate>{text}</p>)}
       {slide.bullets&&<ul class="benefits" data-animate>{slide.bullets.map((text,i)=><li><span class="benefit-number">{String(i+1).padStart(2,'0')}</span><span>{text}</span></li>)}</ul>}
